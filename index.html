@@ -118,6 +118,7 @@
 <body>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <div class="wrap">
   <header>
     <h1>Rate the Makan</h1>
@@ -187,6 +188,10 @@
 
   var entries = [];
   var currentRating = 0;
+
+  firebase.auth().signInAnonymously().catch(function(err) {
+    setStatus('Could not connect — auth error.');
+  });
 
   var starsEl = document.getElementById('stars');
   starsEl.querySelectorAll('span').forEach(function(s) {
@@ -315,7 +320,9 @@
     return d.innerHTML;
   }
 
-  loadEntries();
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (user) loadEntries();
+  });
 </script>
 </body>
 </html>
