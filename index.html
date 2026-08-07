@@ -14,6 +14,8 @@
     --amber: #EF9F27;
     --line: #E8DFD1;
     --good: #3B6D11;
+    --bad: #B23A3A;
+    --maybe: #C98A1E;
   }
   * { box-sizing: border-box; }
   body {
@@ -60,6 +62,20 @@
   .stars span { cursor: pointer; color: var(--line); transition: color .1s; }
   .stars span.active { color: var(--amber); }
 
+  .verdict-group { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  .verdict-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+  }
+  .verdict-option input { width: auto; margin: 0; }
+
   button.primary {
     margin-top: 14px;
     width: 100%;
@@ -86,7 +102,9 @@
     margin-bottom: 10px;
     position: relative;
   }
-  .entry.would-again { border-left-color: var(--good); }
+  .entry.verdict-again { border-left-color: var(--good); }
+  .entry.verdict-maybe { border-left-color: var(--maybe); }
+  .entry.verdict-no { border-left-color: var(--bad); }
   .entry-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
   .entry-name { font-size: 15px; font-weight: 700; margin: 0; }
   .entry-stars { font-size: 13px; color: var(--amber); white-space: nowrap; }
@@ -122,16 +140,16 @@
 <div class="wrap">
   <header>
     <h1>Makan mana kamu?</h1>
-    <p>Your running log of what's actually good around the world </p>
+    <p>Your running log of what's actually good around the world</p>
   </header>
 
   <div class="card">
     <h2>Log a place</h2>
-    <label for="name">"Apa nama kedai?</label>
-    <input type="text" id="name" placeholder=
+    <label for="name">Apa nama kedai?</label>
+    <input type="text" id="name" placeholder=>
 
-    <label for="submitter">apa nama?</label>
-    <input type="text" id="submitter" placeholder=
+    <label for="submitter">Apa nama?</label>
+    <input type="text" id="submitter" placeholder=>
 
     <label>Rating</label>
     <div class="stars" id="stars">
@@ -153,15 +171,18 @@
     <label for="notes">Notes</label>
     <textarea id="notes" placeholder="Apa ko makan?"></textarea>
 
-    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--ink);">
-      <input type="checkbox" id="again" style="width:auto;"> Would go again
-    </label>
-     <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--ink);">
-      <input type="checkbox" id="again" style="width:auto;"> See lah first
-    </label>
-     <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--ink);">
-      <input type="checkbox" id="again" style="width:auto;"> Hell NO!
-    </label>
+    <label>Verdict</label>
+    <div class="verdict-group" id="verdictGroup">
+      <label class="verdict-option">
+        <input type="radio" name="verdict" value="again" checked> Would go again
+      </label>
+      <label class="verdict-option">
+        <input type="radio" name="verdict" value="maybe"> See lah first
+      </label>
+      <label class="verdict-option">
+        <input type="radio" name="verdict" value="no"> Hell NO!
+      </label>
+    </div>
 
     <button class="primary" id="saveBtn">Save entry</button>
   </div>
@@ -180,7 +201,6 @@
 
 <script>
   // ---- Firebase setup ----
-  // Paste your web app config from the Firebase console here.
   var firebaseConfig = {
     apiKey: "AIzaSyBiwBK4A1nWC9gfOXYDchfZNiXaaezynpo",
     authDomain: "makan-6f26f.firebaseapp.com",
@@ -194,6 +214,7 @@
 
   var entries = [];
   var currentRating = 0;
+  var verdictLabels = { again: 'would go again', maybe: 'see lah first', no: 'hell no' };
 
   firebase.auth().signInAnonymously().catch(function(err) {
     setStatus('Could not connect — auth error.');
@@ -241,6 +262,7 @@
     var name = document.getElementById('name').value.trim();
     if (!name) { setStatus('Add a place or dish name first.'); return; }
     if (currentRating === 0) { setStatus('Tap some stars to rate it.'); return; }
+    var verdictInput = document.querySelector('input[name="verdict"]:checked');
     var entry = {
       id: 'e' + Date.now(),
       name: name,
@@ -248,13 +270,14 @@
       rating: currentRating,
       tag: document.getElementById('tag').value,
       notes: document.getElementById('notes').value.trim(),
-      again: document.getElementById('again').checked,
+      verdict: verdictInput ? verdictInput.value : 'again',
       date: new Date().toISOString()
     };
     entries.unshift(entry);
     document.getElementById('name').value = '';
+    document.getElementById('submitter').value = '';
     document.getElementById('notes').value = '';
-    document.getElementById('again').checked = false;
+    document.querySelector('input[name="verdict"][value="again"]').checked = true;
     currentRating = 0;
     renderStars();
     populateTagFilter();
@@ -299,11 +322,12 @@
       var d = new Date(e.date);
       var dateStr = d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
       var stars = '★'.repeat(e.rating) + '☆'.repeat(5 - e.rating);
-      return '<div class="entry' + (e.again ? ' would-again' : '') + '" data-id="' + e.id + '">' +
+      var verdict = e.verdict || 'again';
+      return '<div class="entry verdict-' + verdict + '" data-id="' + e.id + '">' +
         '<span class="del" data-del="' + e.id + '" title="Delete">×</span>' +
         '<div class="entry-top"><p class="entry-name">' + escapeHtml(e.name) + '</p>' +
         '<span class="entry-stars">' + stars + '</span></div>' +
-        '<div class="entry-meta">' + dateStr + (e.submitter ? ' · added by ' + escapeHtml(e.submitter) : '') + (e.again ? ' · would go again' : '') + '</div>' +
+        '<div class="entry-meta">' + dateStr + (e.submitter ? ' · added by ' + escapeHtml(e.submitter) : '') + ' · ' + verdictLabels[verdict] + '</div>' +
         (e.notes ? '<p class="entry-notes">' + escapeHtml(e.notes) + '</p>' : '') +
         '<span class="entry-tag">' + escapeHtml(e.tag) + '</span>' +
         '</div>';
